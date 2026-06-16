@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "silvestre-solutions-backend",
+  "name": "website-creation",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-16",
   "assets": {
