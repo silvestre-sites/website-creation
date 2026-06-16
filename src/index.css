@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-on-surface-variant: #52525b; /* zinc-600 */
+  --color-inverse-surface: #18181b;
+  --color-on-primary-container: #155200;
+  --color-surface-container-highest: #f4f4f5; /* zinc-100 */
+  --color-tertiary-fixed-dim: #ffb77f;
+  --color-error: #ef4444;
+  --color-primary-fixed-dim: #58e226;
+  --color-outline: #e4e4e7; /* zinc-200 */
+  --color-on-secondary: #ffffff;
+  --color-outline-variant: #e4e4e7; /* zinc-200 */
+  --color-surface-variant: #fafafa;
+  --color-on-surface: #09090b; /* zinc-950 */
+  --color-surface-tint: #1f6d00;
+  --color-on-error: #ffffff;
+  --color-surface-container-high: #f4f4f5;
+  --color-on-tertiary-fixed-variant: #6f3900;
+  --color-error-container: #fef2f2;
+  --color-surface-container-low: #fafafa;
+  --color-on-tertiary: #ffffff;
+  --color-primary-container: #44cf05;
+  --color-on-tertiary-container: #6e3800;
+  --color-background: #ffffff;
+  --color-surface-bright: #ffffff;
+  --color-surface: #ffffff;
+  --color-inverse-on-surface: #fafafa;
+  --color-on-secondary-fixed-variant: #6900b3;
+  --color-primary: #1f6d00; /* Keeping existing branding */
+  --color-on-primary: #ffffff;
+  --color-on-error-container: #93000a;
+  --color-tertiary-fixed: #ffdcc4;
+  --color-on-secondary-container: #fffbff;
+  --color-on-primary-fixed: #052100;
+  --color-inverse-primary: #58e226;
+  --color-surface-container: #fafafa;
+  --color-secondary-fixed: #f0dbff;
+  --color-surface-dim: #f4f4f5;
+  --color-surface-container-lowest: #ffffff;
+  --color-secondary-container: #9c48ea;
+  --color-tertiary: #914c00;
+  --color-secondary-fixed-dim: #ddb7ff;
+  --color-on-primary-fixed-variant: #165200;
+  --color-on-tertiary-fixed: #2f1500;
+  --color-primary-fixed: #7bff4d;
+  --color-on-background: #09090b;
+  --color-secondary: #8127cf;
+  --color-on-secondary-fixed: #2c0051;
+  --color-tertiary-container: #ff9d48;
+
+  --spacing-stack-sm: 8px;
+  --spacing-margin-safe: 24px;
+  --spacing-base: 8px;
+  --spacing-gutter: 24px;
+  --spacing-section-gap: 80px; /* Reduced for SaaS layout */
+  --spacing-stack-md: 16px;
+
+  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-space: "Space Grotesk", var(--font-inter);
+  --font-sans: var(--font-inter);
+
+  --font-title-md: var(--font-space);
+  --text-title-md: 18px;
+  --text-title-md--line-height: 1.4;
+  --font-weight-title-md: 600;
+
+  --font-label-sm: var(--font-inter);
+  --text-label-sm: 13px;
+  --text-label-sm--line-height: 1;
+  --text-label-sm--letter-spacing: 0em;
+  --font-weight-label-sm: 500;
+
+  --font-display-lg: var(--font-space);
+  --text-display-lg: 56px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -0.02em;
+  --font-weight-display-lg: 700;
+
+  --font-headline-lg-mobile: var(--font-space);
+  --text-headline-lg-mobile: 32px;
+  --text-headline-lg-mobile--line-height: 1.2;
+  --font-weight-headline-lg-mobile: 700;
+
+  --font-body-md: var(--font-inter);
+  --text-body-md: 15px;
+  --text-body-md--line-height: 1.6;
+  --font-weight-body-md: 400;
+
+  --font-headline-lg: var(--font-space);
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 1.2;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --font-weight-headline-lg: 600;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Linear / SaaS inspired utilities */
+.saas-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.02);
+  transition: all 0.2s ease-out;
+}
+
+.saas-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.03), 0 12px 24px rgba(0,0,0,0.04);
+}
+
+.saas-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.saas-button-primary {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.saas-button-primary:hover {
+  background-color: #165200;
+  transform: translateY(-1px);
+}
+
+.saas-button-secondary {
+  background-color: #ffffff;
+  color: var(--color-on-surface);
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.saas-button-secondary:hover {
+  background-color: #fafafa;
+}
+
+.saas-input {
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 14px;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.saas-input:focus {
+  outline: none;
+  border-color: rgba(31, 109, 0, 0.4);
+  box-shadow: 0 0 0 3px rgba(31, 109, 0, 0.1);
+}
+
+.nav-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: #52525b; /* zinc-600 */
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover {
+  color: #09090b; /* zinc-950 */
+}
+
+/* Subtle modern grid background */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08); /* Darkened slightly to match SaaS look */
+  border-radius: 12px;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

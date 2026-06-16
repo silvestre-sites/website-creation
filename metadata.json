@@ -1,0 +1,8 @@
+{
+  "name": "Remix:Silvestre Site app",
+  "description": "",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

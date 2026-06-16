@@ -1,0 +1,16 @@
+# wrangler.toml
+# Configuration for the Edge API Worker
+
+name = "lead-marketplace-api"
+main = "src/index.ts"
+compatibility_date = "2026-06-11"
+
+# Cloudflare D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "lead-marketplace-db"
+database_id = "your-d1-database-id-here" # Replace with 'npx wrangler d1 create lead-marketplace-db' output ID
+migrations_dir = "./"
+
+[vars]
+JWT_SECRET = "change-this-to-a-secure-secret-key-in-cloudflare-dashboard"
