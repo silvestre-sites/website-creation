@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "silvestre-solutions-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-16",
+  "assets": {
+    "directory": "../dist",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "prod-silvestre-db",
+      "database_id": "446ee8b9-0313-4d28-b6d4-3fb44470ffcd"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "silvestre-support-docs"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+}
