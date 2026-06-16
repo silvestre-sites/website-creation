@@ -226,18 +226,6 @@ export function Auth() {
               {isLogin ? "Apply Now" : "Sign In"}
             </button>
           </div>
-          
-          <button 
-             onClick={() => {
-                setEmail('olisbel@gmail.com');
-                setPassword('19921108626');
-                setIsLogin(true);
-             }}
-             className="text-[11px] text-on-surface-variant/60 hover:text-primary transition-colors flex items-center gap-1"
-          >
-             <span className="material-symbols-outlined text-[14px]">shield_person</span>
-             Admin Quick Login
-          </button>
         </div>
       </div>
     </div>
