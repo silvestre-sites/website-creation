@@ -7,6 +7,7 @@ export interface Env {
   // Bind your D1 Database in wrangler.toml to DB
   DB: D1Database;
   JWT_SECRET?: string;
+  ASSETS: any; // Fetcher type for static assets
 }
 
 export default {
@@ -336,7 +337,27 @@ export default {
         return jsonResponse({ success: true, message: `Lead ${leadId} permanently deleted` }, 200, corsHeaders);
       }
 
-      return jsonResponse({ error: "Endpoint Not Found" }, 404, corsHeaders);
+      // If none of the API endpoints match, check if it's a request for a static asset
+      try {
+        const asset = await env.ASSETS.fetch(request.clone());
+        if (asset.status !== 404) {
+          return asset;
+        }
+      } catch (assetErr) {
+        // Continue to SPA fallback
+      }
+
+      // If it's an API route that genuinely wasn't found, return API 404
+      if (path.startsWith("/api")) {
+        return jsonResponse({ error: "Endpoint Not Found" }, 404, corsHeaders);
+      }
+
+      // Otherwise, serve the main index.html for frontend SPA routing
+      try {
+        return await env.ASSETS.fetch(new URL("/", request.url));
+      } catch (assetsErr) {
+        return jsonResponse({ error: "Endpoint Not Found" }, 404, corsHeaders);
+      }
 
     } catch (err: any) {
       return jsonResponse({ error: err.message || "Internal Server Error" }, 500, corsHeaders);
