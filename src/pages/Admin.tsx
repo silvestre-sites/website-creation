@@ -299,7 +299,9 @@ export function Admin() {
     }
 
     localStorage.setItem("platform_modules", JSON.stringify(updatedModules));
-    setModules(updatedModules);
+    api.training.saveModules(updatedModules)
+      .then(() => setModules(updatedModules))
+      .catch(err => alert("Error saving dynamic modules on server: " + err.message));
     
     setSelectedModule(null);
     setIsEditingModule(false);

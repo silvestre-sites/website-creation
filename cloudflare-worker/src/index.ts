@@ -84,6 +84,52 @@ async function ensureConfigTable(db: any) {
   await db.prepare("CREATE TABLE IF NOT EXISTS platform_configs (key TEXT PRIMARY KEY, value TEXT)").run();
 }
 
+async function ensureAllTables(db: any) {
+  await ensureConfigTable(db);
+  
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS billing_docs (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      doc_number TEXT NOT NULL,
+      client_id TEXT,
+      client_name TEXT NOT NULL,
+      issue_date TEXT,
+      due_date TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      items_json TEXT NOT NULL,
+      subtotal REAL NOT NULL,
+      tax_rate REAL NOT NULL,
+      total REAL NOT NULL,
+      notes TEXT,
+      status TEXT NOT NULL,
+      issuer_email TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS training_modules (
+      id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      duration TEXT,
+      image TEXT,
+      summary TEXT,
+      points_json TEXT,
+      quiz_questions_json TEXT
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS training_resources (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      type TEXT NOT NULL
+    )
+  `).run();
+}
+
 async function getConfig(db: any, key: string, defaultValue: any = null): Promise<any> {
   await ensureConfigTable(db);
   const row = (await db
@@ -377,182 +423,266 @@ app.delete("/api/agents/:email", authMiddleware, async (c) => {
 
 // GET /api/leads
 app.get("/api/leads", async (c) => {
-  const { results: leadsRows } = await c.env.DB.prepare("SELECT * FROM leads ORDER BY status ASC, id DESC").all();
+  try {
+    const { results: leadsRows } = await c.env.DB.prepare("SELECT * FROM leads ORDER BY status ASC, id DESC").all();
 
-  const leads: any[] = [];
-  for (const lead of leadsRows as any[]) {
-    const { results: notes } = await c.env.DB.prepare("SELECT * FROM lead_notes WHERE lead_id = ?")
-      .bind(lead.id)
-      .all();
+    const leads: any[] = [];
+    for (const lead of leadsRows as any[]) {
+      const { results: notes } = await c.env.DB.prepare("SELECT * FROM lead_notes WHERE lead_id = ?")
+        .bind(lead.id)
+        .all();
 
-    const { results: customFields } = await c.env.DB.prepare("SELECT * FROM lead_custom_fields WHERE lead_id = ?")
-      .bind(lead.id)
-      .all();
+      const { results: customFields } = await c.env.DB.prepare("SELECT * FROM lead_custom_fields WHERE lead_id = ?")
+        .bind(lead.id)
+        .all();
 
-    leads.push({
-      id: lead.id,
-      name: lead.name,
-      industry: lead.industry,
-      country: lead.country,
-      estValue: lead.est_value,
-      payout: lead.payout,
-      earningsCurrency: lead.earnings_currency,
-      status: lead.status,
-      claimedBy: lead.claimed_by || undefined,
-      contactPerson: {
-        name: lead.contact_name || "",
-        email: lead.contact_email || "",
-        phone: lead.contact_phone || "",
-        role: lead.contact_role || "",
-      },
-      socials: {
-        linkedin: lead.social_linkedin || undefined,
-        facebook: lead.social_facebook || undefined,
-        whatsapp: lead.social_whatsapp || undefined,
-        twitter: lead.social_twitter || undefined,
-      },
-      prototypeUrl: lead.prototype_url,
-      description: lead.description || "",
-      isFrozen: lead.is_frozen === 1,
-      commissionPaid: lead.commission_paid === 1,
-      commissionPaidDate: lead.commission_paid_date || undefined,
-      commissionProofName: lead.commission_proof_name || undefined,
-      commissionProofUrl: lead.commission_proof_url || undefined,
-      notes: notes.map((n: any) => ({
-        id: n.id,
-        author: n.author,
-        text: n.text,
-        date: n.date,
-      })),
-      customFields: customFields.map((cf: any) => ({
-        id: cf.id,
-        title: cf.title,
-        value: cf.value,
-      })),
-      uploads: [],
-    });
+      leads.push({
+        id: lead.id,
+        name: lead.name,
+        industry: lead.industry,
+        country: lead.country,
+        estValue: lead.est_value,
+        payout: lead.payout,
+        earningsCurrency: lead.earnings_currency,
+        status: lead.status,
+        claimedBy: lead.claimed_by || undefined,
+        contactPerson: {
+          name: lead.contact_name || "",
+          email: lead.contact_email || "",
+          phone: lead.contact_phone || "",
+          role: lead.contact_role || "",
+        },
+        socials: {
+          linkedin: lead.social_linkedin || undefined,
+          facebook: lead.social_facebook || undefined,
+          whatsapp: lead.social_whatsapp || undefined,
+          twitter: lead.social_twitter || undefined,
+        },
+        prototypeUrl: lead.prototype_url,
+        description: lead.description || "",
+        isFrozen: lead.is_frozen === 1,
+        commissionPaid: lead.commission_paid === 1,
+        commissionPaidDate: lead.commission_paid_date || undefined,
+        commissionProofName: lead.commission_proof_name || undefined,
+        commissionProofUrl: lead.commission_proof_url || undefined,
+        notes: notes.map((n: any) => ({
+          id: n.id,
+          author: n.author,
+          text: n.text,
+          date: n.date,
+        })),
+        customFields: customFields.map((cf: any) => ({
+          id: cf.id,
+          title: cf.title,
+          value: cf.value,
+        })),
+        uploads: [],
+      });
+    }
+
+    return c.json(leads);
+  } catch (err: any) {
+    return c.json({ error: "Failed to load leads from database: " + err.message }, 500);
   }
-
-  return c.json(leads);
 });
 
 // POST /api/leads
 app.post("/api/leads", authMiddleware, async (c) => {
-  const body = (await c.req.json()) as any;
-  const randomId = "L-" + Math.floor(1000 + Math.random() * 9000);
+  try {
+    const body = (await c.req.json()) as any;
+    const randomId = "L-" + Math.floor(1000 + Math.random() * 9000);
 
-  const estValue = body.estValue || 1500;
-  const payout = body.payout || Math.round(estValue * 0.2);
+    const estValue = body.estValue || 1500;
+    const payout = body.payout || Math.round(estValue * 0.2);
 
-  await c.env.DB.prepare(
-    `INSERT INTO leads (
-      id, name, industry, country, est_value, payout, earnings_currency, status, 
-      claimed_by, contact_name, contact_email, contact_phone, contact_role,
-      social_linkedin, social_facebook, social_whatsapp, social_twitter, 
-      prototype_url, description, is_frozen, commission_paid
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`
-  )
-    .bind(
-      randomId,
-      body.name || "Unnamed Opportunity",
-      body.industry || "General Services",
-      body.country || "United States",
-      estValue,
-      payout,
-      body.earningsCurrency || "USD",
-      body.status || "Available",
-      body.claimedBy || null,
-      body.contactPerson?.name || null,
-      body.contactPerson?.email || null,
-      body.contactPerson?.phone || null,
-      body.contactPerson?.role || null,
-      body.socials?.linkedin || null,
-      body.socials?.facebook || null,
-      body.socials?.whatsapp || null,
-      body.socials?.twitter || null,
-      body.prototypeUrl || "https://example.com/demo",
-      body.description || ""
+    await c.env.DB.prepare(
+      `INSERT INTO leads (
+        id, name, industry, country, est_value, payout, earnings_currency, status, 
+        claimed_by, contact_name, contact_email, contact_phone, contact_role,
+        social_linkedin, social_facebook, social_whatsapp, social_twitter, 
+        prototype_url, description, is_frozen, commission_paid
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`
     )
-    .run();
+      .bind(
+        randomId,
+        body.name || "Unnamed Opportunity",
+        body.industry || "General Services",
+        body.country || "United States",
+        estValue,
+        payout,
+        body.earningsCurrency || "USD",
+        body.status || "Available",
+        body.claimedBy || null,
+        body.contactPerson?.name || null,
+        body.contactPerson?.email || null,
+        body.contactPerson?.phone || null,
+        body.contactPerson?.role || null,
+        body.socials?.linkedin || null,
+        body.socials?.facebook || null,
+        body.socials?.whatsapp || null,
+        body.socials?.twitter || null,
+        body.prototypeUrl || "https://example.com/demo",
+        body.description || ""
+      )
+      .run();
 
-  if (body.customFields && Array.isArray(body.customFields)) {
-    for (const cf of body.customFields) {
-      await c.env.DB.prepare("INSERT INTO lead_custom_fields (id, lead_id, title, value) VALUES (?, ?, ?, ?)")
-        .bind(cf.id || Math.random().toString(), randomId, cf.title, cf.value)
-        .run();
+    if (body.customFields && Array.isArray(body.customFields)) {
+      for (const cf of body.customFields) {
+        await c.env.DB.prepare("INSERT INTO lead_custom_fields (id, lead_id, title, value) VALUES (?, ?, ?, ?)")
+          .bind(cf.id || Math.random().toString(), randomId, cf.title, cf.value)
+          .run();
+      }
     }
-  }
 
-  return c.json({ success: true, id: randomId }, 201);
+    return c.json({ success: true, id: randomId }, 201);
+  } catch (err: any) {
+    return c.json({ error: "Failed to create lead opportunity: " + err.message }, 500);
+  }
 });
 
 // PUT /api/leads/:id
 app.put("/api/leads/:id", authMiddleware, async (c) => {
-  const leadId = c.req.param("id");
-  const body = (await c.req.json()) as any;
+  try {
+    const leadId = c.req.param("id");
+    const body = (await c.req.json()) as any;
 
-  const fields: string[] = [];
-  const params: any[] = [];
+    const fields: string[] = [];
+    const params: any[] = [];
 
-  if (body.name !== undefined) {
-    fields.push("name = ?");
-    params.push(body.name);
-  }
-  if (body.status !== undefined) {
-    fields.push("status = ?");
-    params.push(body.status);
-  }
-  if (body.claimedBy !== undefined) {
-    fields.push("claimed_by = ?");
-    params.push(body.claimedBy);
-  }
-  if (body.isFrozen !== undefined) {
-    fields.push("is_frozen = ?");
-    params.push(body.isFrozen ? 1 : 0);
-  }
-  if (body.commissionPaid !== undefined) {
-    fields.push("commission_paid = ?");
-    params.push(body.commissionPaid ? 1 : 0);
-  }
-  if (body.commissionPaidDate !== undefined) {
-    fields.push("commission_paid_date = ?");
-    params.push(body.commissionPaidDate);
-  }
-  if (body.commissionProofName !== undefined) {
-    fields.push("commission_proof_name = ?");
-    params.push(body.commissionProofName);
-  }
-  if (body.commissionProofUrl !== undefined) {
-    fields.push("commission_proof_url = ?");
-    params.push(body.commissionProofUrl);
-  }
+    if (body.name !== undefined) {
+      fields.push("name = ?");
+      params.push(body.name);
+    }
+    if (body.industry !== undefined) {
+      fields.push("industry = ?");
+      params.push(body.industry);
+    }
+    if (body.country !== undefined) {
+      fields.push("country = ?");
+      params.push(body.country);
+    }
+    if (body.estValue !== undefined) {
+      fields.push("est_value = ?");
+      params.push(Number(body.estValue));
+    }
+    if (body.payout !== undefined) {
+      fields.push("payout = ?");
+      params.push(Number(body.payout));
+    }
+    if (body.earningsCurrency !== undefined) {
+      fields.push("earnings_currency = ?");
+      params.push(body.earningsCurrency);
+    }
+    if (body.status !== undefined) {
+      fields.push("status = ?");
+      params.push(body.status);
+    }
+    if (body.claimedBy !== undefined) {
+      fields.push("claimed_by = ?");
+      params.push(body.claimedBy || null);
+    }
+    if (body.isFrozen !== undefined) {
+      fields.push("is_frozen = ?");
+      params.push(body.isFrozen ? 1 : 0);
+    }
+    if (body.commissionPaid !== undefined) {
+      fields.push("commission_paid = ?");
+      params.push(body.commissionPaid ? 1 : 0);
+    }
+    if (body.commissionPaidDate !== undefined) {
+      fields.push("commission_paid_date = ?");
+      params.push(body.commissionPaidDate || null);
+    }
+    if (body.commissionProofName !== undefined) {
+      fields.push("commission_proof_name = ?");
+      params.push(body.commissionProofName || null);
+    }
+    if (body.commissionProofUrl !== undefined) {
+      fields.push("commission_proof_url = ?");
+      params.push(body.commissionProofUrl || null);
+    }
+    if (body.prototypeUrl !== undefined) {
+      fields.push("prototype_url = ?");
+      params.push(body.prototypeUrl);
+    }
+    if (body.description !== undefined) {
+      fields.push("description = ?");
+      params.push(body.description);
+    }
 
-  if (fields.length > 0) {
-    params.push(leadId);
-    await c.env.DB.prepare(`UPDATE leads SET ${fields.join(", ")} WHERE id = ?`)
-      .bind(...params)
-      .run();
-  }
+    // Nested structure contact person mapping:
+    if (body.contactPerson !== undefined) {
+      if (body.contactPerson.name !== undefined) {
+        fields.push("contact_name = ?");
+        params.push(body.contactPerson.name);
+      }
+      if (body.contactPerson.email !== undefined) {
+        fields.push("contact_email = ?");
+        params.push(body.contactPerson.email);
+      }
+      if (body.contactPerson.phone !== undefined) {
+        fields.push("contact_phone = ?");
+        params.push(body.contactPerson.phone);
+      }
+      if (body.contactPerson.role !== undefined) {
+        fields.push("contact_role = ?");
+        params.push(body.contactPerson.role);
+      }
+    }
 
-  if (body.newNote) {
-    const noteId = "note_" + Date.now();
-    await c.env.DB.prepare("INSERT INTO lead_notes (id, lead_id, author, text, date) VALUES (?, ?, ?, ?, ?)")
-      .bind(noteId, leadId, body.newNote.author, body.newNote.text, body.newNote.date)
-      .run();
-  }
+    // Nested structure socials mapping:
+    if (body.socials !== undefined) {
+      if (body.socials.linkedin !== undefined) {
+        fields.push("social_linkedin = ?");
+        params.push(body.socials.linkedin);
+      }
+      if (body.socials.facebook !== undefined) {
+        fields.push("social_facebook = ?");
+        params.push(body.socials.facebook);
+      }
+      if (body.socials.whatsapp !== undefined) {
+        fields.push("social_whatsapp = ?");
+        params.push(body.socials.whatsapp);
+      }
+      if (body.socials.twitter !== undefined) {
+        fields.push("social_twitter = ?");
+        params.push(body.socials.twitter);
+      }
+    }
 
-  return c.json({ success: true });
+    if (fields.length > 0) {
+      params.push(leadId);
+      await c.env.DB.prepare(`UPDATE leads SET ${fields.join(", ")} WHERE id = ?`)
+        .bind(...params)
+        .run();
+    }
+
+    if (body.newNote) {
+      const noteId = "note_" + Date.now();
+      await c.env.DB.prepare("INSERT INTO lead_notes (id, lead_id, author, text, date) VALUES (?, ?, ?, ?, ?)")
+        .bind(noteId, leadId, body.newNote.author, body.newNote.text, body.newNote.date)
+        .run();
+    }
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: "Failed to update lead: " + err.message }, 500);
+  }
 });
 
 // DELETE /api/leads/:id
 app.delete("/api/leads/:id", authMiddleware, async (c) => {
-  const user = c.get("user");
-  if (user.is_admin !== 1) {
-    return c.json({ error: "Permission denied. Admin required." }, 403);
+  try {
+    const user = c.get("user");
+    if (user.is_admin !== 1) {
+      return c.json({ error: "Permission denied. Admin required." }, 403);
+    }
+    const leadId = c.req.param("id");
+    await c.env.DB.prepare("DELETE FROM leads WHERE id = ?").bind(leadId).run();
+    return c.json({ success: true, message: `Lead ${leadId} permanently deleted` });
+  } catch (err: any) {
+    return c.json({ error: "Failed to delete lead: " + err.message }, 500);
   }
-  const leadId = c.req.param("id");
-  await c.env.DB.prepare("DELETE FROM leads WHERE id = ?").bind(leadId).run();
-  return c.json({ success: true, message: `Lead ${leadId} permanently deleted` });
 });
 
 // --------------------------------------------------
@@ -701,83 +831,269 @@ app.post("/api/config/quiz", authMiddleware, async (c) => {
 
 // GET /api/training/resources
 app.get("/api/training/resources", async (c) => {
-  const resources = await getConfig(c.env.DB, "resources", []);
-  return c.json(resources);
+  try {
+    await ensureAllTables(c.env.DB);
+    const { results } = await c.env.DB.prepare("SELECT * FROM training_resources").all();
+    return c.json(results);
+  } catch (err: any) {
+    return c.json({ error: "Failed to load training resources: " + err.message }, 500);
+  }
 });
 
 // POST /api/training/resources
 app.post("/api/training/resources", authMiddleware, async (c) => {
-  const user = c.get("user");
-  if (user.is_admin !== 1) return c.json({ error: "Admin authorization required" }, 403);
-  const { resources } = (await c.req.json()) as any;
-  await setConfig(c.env.DB, "resources", resources || []);
-  return c.json({ success: true });
+  try {
+    await ensureAllTables(c.env.DB);
+    const user = c.get("user");
+    if (user.is_admin !== 1) return c.json({ error: "Admin authorization required" }, 403);
+
+    const { resources } = (await c.req.json()) as any;
+    if (!resources || !Array.isArray(resources)) {
+      return c.json({ error: "Expected 'resources' array" }, 400);
+    }
+
+    const queries = [
+      c.env.DB.prepare("DELETE FROM training_resources")
+    ];
+
+    for (const res of resources) {
+      queries.push(
+        c.env.DB.prepare(`
+          INSERT INTO training_resources (id, title, url, type) 
+          VALUES (?, ?, ?, ?)
+        `).bind(
+          res.id || res.title || Math.random().toString(),
+          res.title,
+          res.url,
+          res.type || "link"
+        )
+      );
+    }
+
+    await c.env.DB.batch(queries);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: "Failed to save training resources: " + err.message }, 500);
+  }
 });
 
 // GET /api/training/modules
 app.get("/api/training/modules", async (c) => {
-  const modules = await getConfig(c.env.DB, "modules", []);
-  return c.json(modules);
+  try {
+    await ensureAllTables(c.env.DB);
+    const { results } = await c.env.DB.prepare("SELECT * FROM training_modules ORDER BY id ASC").all();
+    const formattedModules = results.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      duration: row.duration,
+      image: row.image,
+      summary: row.summary,
+      points: JSON.parse(row.points_json || "[]"),
+      quizQuestions: JSON.parse(row.quiz_questions_json || "[]")
+    }));
+    return c.json(formattedModules);
+  } catch (err: any) {
+    return c.json({ error: "Failed to load training modules: " + err.message }, 500);
+  }
 });
 
 // POST /api/training/modules
 app.post("/api/training/modules", authMiddleware, async (c) => {
-  const user = c.get("user");
-  if (user.is_admin !== 1) return c.json({ error: "Admin authorization required" }, 403);
-  const { modules } = (await c.req.json()) as any;
-  await setConfig(c.env.DB, "modules", modules || []);
-  return c.json({ success: true });
+  try {
+    await ensureAllTables(c.env.DB);
+    const user = c.get("user");
+    if (user.is_admin !== 1) return c.json({ error: "Admin authorization required" }, 403);
+
+    const { modules } = (await c.req.json()) as any;
+    if (!modules || !Array.isArray(modules)) {
+      return c.json({ error: "Expected 'modules' array" }, 400);
+    }
+
+    const queries = [
+      c.env.DB.prepare("DELETE FROM training_modules")
+    ];
+
+    for (const mod of modules) {
+      queries.push(
+        c.env.DB.prepare(`
+          INSERT INTO training_modules (id, title, duration, image, summary, points_json, quiz_questions_json) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          mod.id,
+          mod.title,
+          mod.duration || "",
+          mod.image || "",
+          mod.summary || "",
+          JSON.stringify(mod.points || []),
+          JSON.stringify(mod.quizQuestions || [])
+        )
+      );
+    }
+
+    await c.env.DB.batch(queries);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: "Failed to save training modules: " + err.message }, 500);
+  }
 });
 
 // GET /api/billing
 app.get("/api/billing", authMiddleware, async (c) => {
-  const billingDocs = await getConfig(c.env.DB, "billingDocs", []);
-  return c.json(billingDocs);
+  try {
+    await ensureAllTables(c.env.DB);
+    const { results } = await c.env.DB.prepare("SELECT * FROM billing_docs ORDER BY created_at DESC").all();
+    const formattedDocs = results.map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      docNumber: row.doc_number,
+      clientId: row.client_id,
+      clientName: row.client_name,
+      issueDate: row.issue_date,
+      dueDate: row.due_date,
+      currency: row.currency,
+      items: JSON.parse(row.items_json || "[]"),
+      subtotal: row.subtotal,
+      taxRate: row.tax_rate,
+      total: row.total,
+      notes: row.notes,
+      status: row.status,
+      issuerEmail: row.issuer_email,
+    }));
+    return c.json(formattedDocs);
+  } catch (err: any) {
+    return c.json({ error: "Failed to retrieve billing docs: " + err.message }, 500);
+  }
 });
 
 // POST /api/billing/sync
 app.post("/api/billing/sync", authMiddleware, async (c) => {
-  const billingDocs = (await c.req.json()) as any;
-  await setConfig(c.env.DB, "billingDocs", billingDocs || []);
-  return c.json({ success: true });
+  try {
+    await ensureAllTables(c.env.DB);
+    const invoices = (await c.req.json()) as any[];
+    if (!Array.isArray(invoices)) {
+      return c.json({ error: "Request body must be a JSON array of invoices" }, 400);
+    }
+
+    const queries = [
+      c.env.DB.prepare("DELETE FROM billing_docs")
+    ];
+
+    for (const inv of invoices) {
+      queries.push(
+        c.env.DB.prepare(`
+          INSERT INTO billing_docs (
+            id, type, doc_number, client_id, client_name, issue_date, due_date, 
+            currency, items_json, subtotal, tax_rate, total, notes, status, issuer_email, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          inv.id,
+          inv.type || "Estimate",
+          inv.docNumber,
+          inv.clientId || null,
+          inv.clientName,
+          inv.issueDate || null,
+          inv.dueDate,
+          inv.currency || "USD",
+          JSON.stringify(inv.items || []),
+          inv.subtotal || 0,
+          inv.taxRate || 0,
+          inv.total || 0,
+          inv.notes || "",
+          inv.status || "Unpaid",
+          inv.issuerEmail || "unknown@agencypro.com",
+          inv.createdAt || new Date().toISOString()
+        )
+      );
+    }
+
+    await c.env.DB.batch(queries);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: "Failed to sync billing: " + err.message }, 500);
+  }
 });
 
 // POST /api/billing
 app.post("/api/billing", authMiddleware, async (c) => {
-  const body = (await c.req.json()) as any;
-  const invoice = {
-    id: "INV-" + Date.now().toString().slice(-6),
-    docNumber: body.docNumber || "QT-" + Math.floor(1000 + Math.random() * 9000),
-    clientId: body.clientId || "",
-    clientName: body.clientName || "",
-    total: Number(body.total) || 0,
-    dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
-    status: body.status || "Unpaid",
-    type: body.type || "Estimate",
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    await ensureAllTables(c.env.DB);
+    const body = (await c.req.json()) as any;
+    const invoiceId = "INV-" + Date.now().toString().slice(-6);
+    const docNumber = body.docNumber || "QT-" + Math.floor(1000 + Math.random() * 9000);
+    const createdAt = new Date().toISOString();
 
-  const billingDocs = await getConfig(c.env.DB, "billingDocs", []);
-  billingDocs.unshift(invoice);
-  await setConfig(c.env.DB, "billingDocs", billingDocs);
-  return c.json(invoice);
+    const invoice = {
+      id: invoiceId,
+      type: body.type || "Estimate",
+      docNumber: docNumber,
+      clientId: body.clientId || null,
+      clientName: body.clientName || "",
+      issueDate: body.issueDate || new Date().toISOString().slice(0, 10),
+      dueDate: body.dueDate || new Date().toISOString().slice(0, 10),
+      currency: body.currency || "USD",
+      items: body.items || [],
+      subtotal: body.subtotal || 0,
+      taxRate: body.taxRate || 0,
+      total: Number(body.total) || 0,
+      notes: body.notes || "",
+      status: body.status || "Unpaid",
+      issuerEmail: body.issuerEmail || c.get("user").email,
+      createdAt: createdAt
+    };
+
+    await c.env.DB.prepare(`
+      INSERT INTO billing_docs (
+        id, type, doc_number, client_id, client_name, issue_date, due_date, 
+        currency, items_json, subtotal, tax_rate, total, notes, status, issuer_email, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      invoice.id,
+      invoice.type,
+      invoice.docNumber,
+      invoice.clientId,
+      invoice.clientName,
+      invoice.issueDate,
+      invoice.dueDate,
+      invoice.currency,
+      JSON.stringify(invoice.items),
+      invoice.subtotal,
+      invoice.taxRate,
+      invoice.total,
+      invoice.notes,
+      invoice.status,
+      invoice.issuerEmail,
+      invoice.createdAt
+    ).run();
+
+    return c.json(invoice);
+  } catch (err: any) {
+    return c.json({ error: "Failed to create invoice: " + err.message }, 500);
+  }
 });
 
 // GET /api/billing-profile/:email
 app.get("/api/billing-profile/:email", authMiddleware, async (c) => {
-  const targetEmail = decodeURIComponent(c.req.param("email")).toLowerCase().trim();
-  const profiles = await getConfig(c.env.DB, "billingProfiles", {});
-  return c.json(profiles[targetEmail] || {});
+  try {
+    const targetEmail = decodeURIComponent(c.req.param("email")).toLowerCase().trim();
+    const profiles = await getConfig(c.env.DB, "billingProfiles", {});
+    return c.json(profiles[targetEmail] || {});
+  } catch (err: any) {
+    return c.json({ error: "Failed to get billing profile: " + err.message }, 500);
+  }
 });
 
 // POST /api/billing-profile/:email
 app.post("/api/billing-profile/:email", authMiddleware, async (c) => {
-  const targetEmail = decodeURIComponent(c.req.param("email")).toLowerCase().trim();
-  const body = (await c.req.json()) as any;
-  const profiles = await getConfig(c.env.DB, "billingProfiles", {});
-  profiles[targetEmail] = body || {};
-  await setConfig(c.env.DB, "billingProfiles", profiles);
-  return c.json({ success: true });
+  try {
+    const targetEmail = decodeURIComponent(c.req.param("email")).toLowerCase().trim();
+    const body = (await c.req.json()) as any;
+    const profiles = await getConfig(c.env.DB, "billingProfiles", {});
+    profiles[targetEmail] = body || {};
+    await setConfig(c.env.DB, "billingProfiles", profiles);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: "Failed to save billing profile: " + err.message }, 500);
+  }
 });
 
 // --------------------------------------------------

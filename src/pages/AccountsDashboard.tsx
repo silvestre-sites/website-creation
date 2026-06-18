@@ -216,8 +216,11 @@ export function AccountsDashboard() {
 
   const handleDeleteClick = (id: string) => {
     if (confirm("Are you sure you want to delete this billing document record?")) {
-      setDocs(docs.filter(d => d.id !== id));
+      const remaining = docs.filter(d => d.id !== id);
+      setDocs(remaining);
       setSelectedDoc(null);
+      api.billing.syncInvoices(remaining)
+        .catch(err => alert("Error syncing deletion to server: " + err.message));
     }
   };
 
@@ -257,6 +260,9 @@ export function AccountsDashboard() {
       setIsEditing(false);
       const matched = updated.find(x => x.id === selectedDoc.id);
       if (matched) setSelectedDoc(matched);
+      api.billing.syncInvoices(updated)
+        .then(() => alert("Billing Record updated successfully on server!"))
+        .catch(err => alert("Error syncing billing update to server: " + err.message));
     } else {
       const newD: BillingDoc = {
         id: Math.random().toString(36).substring(2, 9).toUpperCase(),
@@ -275,11 +281,14 @@ export function AccountsDashboard() {
         status: docStatus,
         issuerEmail: user?.email || "unknown@agencypro.com"
       };
-      setDocs([newD, ...docs]);
+      const updated = [newD, ...docs];
+      setDocs(updated);
       setIsCreating(false);
       setSelectedDoc(newD);
+      api.billing.syncInvoices(updated)
+        .then(() => alert("New Billing Record registered successfully on server!"))
+        .catch(err => alert("Error syncing new billing document to server: " + err.message));
     }
-    alert("Billing Record updated successfully!");
   };
 
   // high-fidelity PDF Generation (REQ EXPLICIT RESOLVE!)
