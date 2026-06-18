@@ -80,7 +80,8 @@ export function TaskDetail() {
   const processAndUpload = async (file: File) => {
     setUploading(true);
     try {
-      const res = await api.upload.file(file);
+      const agentName = user?.name || user?.email || "Agent";
+      const res = await api.upload.file(file, "lead_upload", lead.id, agentName);
       if (res && res.success && res.url) {
         await uploadLeadFile(lead.id, file.name, res.url, user?.name || user?.email || "Agent");
       } else {

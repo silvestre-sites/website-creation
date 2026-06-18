@@ -128,6 +128,19 @@ async function ensureAllTables(db: any) {
       type TEXT NOT NULL
     )
   `).run();
+
+  // Ensure and alter training_modules with pdf_url and pdf_name columns if not exist
+  try {
+    await db.prepare("ALTER TABLE training_modules ADD COLUMN pdf_url TEXT").run();
+  } catch (e) {}
+  try {
+    await db.prepare("ALTER TABLE training_modules ADD COLUMN pdf_name TEXT").run();
+  } catch (e) {}
+
+  // Ensure and alter leads table with uploads_json column if not exist
+  try {
+    await db.prepare("ALTER TABLE leads ADD COLUMN uploads_json TEXT").run();
+  } catch (e) {}
 }
 
 async function getConfig(db: any, key: string, defaultValue: any = null): Promise<any> {
@@ -476,7 +489,7 @@ app.get("/api/leads", async (c) => {
           title: cf.title,
           value: cf.value,
         })),
-        uploads: [],
+        uploads: JSON.parse(lead.uploads_json || "[]"),
       });
     }
 
@@ -600,6 +613,10 @@ app.put("/api/leads/:id", authMiddleware, async (c) => {
     if (body.commissionProofUrl !== undefined) {
       fields.push("commission_proof_url = ?");
       params.push(body.commissionProofUrl || null);
+    }
+    if (body.uploads !== undefined) {
+      fields.push("uploads_json = ?");
+      params.push(JSON.stringify(body.uploads));
     }
     if (body.prototypeUrl !== undefined) {
       fields.push("prototype_url = ?");
@@ -778,6 +795,10 @@ app.post("/api/upload", authMiddleware, async (c) => {
     const file = formData.get("file") as File;
     if (!file) return c.json({ error: "No file was selected for upload." }, 400);
 
+    const targetType = formData.get("targetType") as string;
+    const targetId = formData.get("targetId") as string;
+    const extra = formData.get("extra") as string;
+
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const fileName = `${uniqueSuffix}-${file.name}`;
 
@@ -788,6 +809,39 @@ app.post("/api/upload", authMiddleware, async (c) => {
     });
 
     const fileUrl = `/api/files/${fileName}`;
+
+    // Retreat to make database updates if parameters are supplied for synchronous D1 updates
+    if (targetType && targetId) {
+      await ensureAllTables(c.env.DB);
+      if (targetType === "training_module_pdf") {
+        await c.env.DB.prepare("UPDATE training_modules SET pdf_url = ?, pdf_name = ? WHERE id = ?")
+          .bind(fileUrl, file.name, Number(targetId))
+          .run();
+      } else if (targetType === "training_module_image") {
+        await c.env.DB.prepare("UPDATE training_modules SET image = ? WHERE id = ?")
+          .bind(fileUrl, Number(targetId))
+          .run();
+      } else if (targetType === "lead_upload") {
+        const leadRow = await c.env.DB.prepare("SELECT uploads_json FROM leads WHERE id = ?")
+          .bind(targetId)
+          .first() as any;
+        if (leadRow) {
+          const existing = JSON.parse(leadRow.uploads_json || "[]");
+          const newUpload = {
+            id: "upl-" + Date.now(),
+            name: file.name,
+            url: fileUrl,
+            date: new Date().toISOString().slice(0, 10),
+            uploadedBy: extra || "Agent"
+          };
+          existing.push(newUpload);
+          await c.env.DB.prepare("UPDATE leads SET uploads_json = ? WHERE id = ?")
+            .bind(JSON.stringify(existing), targetId)
+            .run();
+        }
+      }
+    }
+
     return c.json({
       success: true,
       url: fileUrl,
@@ -890,7 +944,9 @@ app.get("/api/training/modules", async (c) => {
       image: row.image,
       summary: row.summary,
       points: JSON.parse(row.points_json || "[]"),
-      quizQuestions: JSON.parse(row.quiz_questions_json || "[]")
+      quizQuestions: JSON.parse(row.quiz_questions_json || "[]"),
+      pdfUrl: row.pdf_url || "",
+      pdfName: row.pdf_name || ""
     }));
     return c.json(formattedModules);
   } catch (err: any) {
@@ -917,8 +973,8 @@ app.post("/api/training/modules", authMiddleware, async (c) => {
     for (const mod of modules) {
       queries.push(
         c.env.DB.prepare(`
-          INSERT INTO training_modules (id, title, duration, image, summary, points_json, quiz_questions_json) 
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO training_modules (id, title, duration, image, summary, points_json, quiz_questions_json, pdf_url, pdf_name) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           mod.id,
           mod.title,
@@ -926,7 +982,9 @@ app.post("/api/training/modules", authMiddleware, async (c) => {
           mod.image || "",
           mod.summary || "",
           JSON.stringify(mod.points || []),
-          JSON.stringify(mod.quizQuestions || [])
+          JSON.stringify(mod.quizQuestions || []),
+          mod.pdfUrl || "",
+          mod.pdfName || ""
         )
       );
     }

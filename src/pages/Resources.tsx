@@ -131,7 +131,9 @@ export function Resources() {
     if (file) {
       setUploadingImage(true);
       try {
-        const res = await api.upload.file(file);
+        const targetType = selectedModule ? "training_module_image" : undefined;
+        const targetId = selectedModule ? String(selectedModule.id) : undefined;
+        const res = await api.upload.file(file, targetType, targetId);
         if (res && res.success) {
           setModImage(res.url);
         } else {
@@ -151,7 +153,9 @@ export function Resources() {
     if (file) {
       setUploadingPdf(true);
       try {
-        const res = await api.upload.file(file);
+        const targetType = selectedModule ? "training_module_pdf" : undefined;
+        const targetId = selectedModule ? String(selectedModule.id) : undefined;
+        const res = await api.upload.file(file, targetType, targetId);
         if (res && res.success) {
           setModPdfUrl(res.url);
           setModPdfName(res.name);

@@ -277,9 +277,12 @@ export const api = {
 
   // Cloudflare R2 Uploads File Bridge
   upload: {
-    file: async (file: File) => {
+    file: async (file: File, targetType?: string, targetId?: string, extra?: string) => {
       const formData = new FormData();
       formData.append("file", file);
+      if (targetType) formData.append("targetType", targetType);
+      if (targetId) formData.append("targetId", targetId);
+      if (extra) formData.append("extra", extra);
       return apiRequest<{ success: boolean; url: string; name: string }>("/api/upload", {
         method: "POST",
         body: formData,
