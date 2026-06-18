@@ -35,6 +35,8 @@ export function Resources() {
   // Admin Module Form States
   const [showModuleModal, setShowModuleModal] = useState(false);
   const [selectedModule, setSelectedModule] = useState<ModuleConfig | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   
   const [modTitle, setModTitle] = useState("");
   const [modDuration, setModDuration] = useState("");
@@ -123,28 +125,44 @@ export function Resources() {
     }
   };
 
-  // Helper for converting images to base64
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Helper for uploading cover images to R2
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setModImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setUploadingImage(true);
+      try {
+        const res = await api.upload.file(file);
+        if (res && res.success) {
+          setModImage(res.url);
+        } else {
+          alert("Image upload failed");
+        }
+      } catch (err: any) {
+        alert("Image upload error: " + err.message);
+      } finally {
+        setUploadingImage(false);
+      }
     }
   };
 
-  // Helper for converting PDFs to base64
-  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Helper for uploading PDFs to R2
+  const handlePdfFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setModPdfUrl(reader.result as string);
-        setModPdfName(file.name);
-      };
-      reader.readAsDataURL(file);
+      setUploadingPdf(true);
+      try {
+        const res = await api.upload.file(file);
+        if (res && res.success) {
+          setModPdfUrl(res.url);
+          setModPdfName(res.name);
+        } else {
+          alert("PDF upload failed");
+        }
+      } catch (err: any) {
+        alert("PDF upload error: " + err.message);
+      } finally {
+        setUploadingPdf(false);
+      }
     }
   };
 
@@ -822,8 +840,8 @@ export function Resources() {
                     placeholder="https://images.unsplash.com/photo-..."
                   />
                   <label className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl cursor-pointer text-sm block font-semibold text-slate-750 shrink-0">
-                    Upload File
-                    <input type="file" accept="image/*" onChange={handleImageFileChange} className="hidden" />
+                    {uploadingImage ? "Uploading..." : "Upload File"}
+                    <input type="file" accept="image/*" onChange={handleImageFileChange} disabled={uploadingImage} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -894,8 +912,8 @@ export function Resources() {
                     placeholder="PDF Document Web URL / Link"
                   />
                   <label className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl cursor-pointer text-sm block font-semibold text-slate-750 shrink-0">
-                    Upload
-                    <input type="file" accept="application/pdf" onChange={handlePdfFileChange} className="hidden" />
+                    {uploadingPdf ? "Uploading..." : "Upload"}
+                    <input type="file" accept="application/pdf" onChange={handlePdfFileChange} disabled={uploadingPdf} className="hidden" />
                   </label>
                 </div>
                 {modPdfName && <p className="text-xs text-emerald-600 font-medium">Selected: {modPdfName}</p>}

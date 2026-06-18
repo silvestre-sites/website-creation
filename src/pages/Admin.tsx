@@ -100,6 +100,8 @@ export function Admin() {
   // Payout Modal state
   const [payingLead, setPayingLead] = useState<Lead | null>(null);
   const [payoutProofName, setPayoutProofName] = useState("");
+  const [payoutProofUrl, setPayoutProofUrl] = useState("");
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   // Load resources, modules, and quiz HTML configs via central backend endpoint
   useEffect(() => {
@@ -451,13 +453,35 @@ export function Admin() {
     alert("Dynamic file record purged successfully from this opportunity's history.");
   };
 
+  const handleProofFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingProof(true);
+      try {
+        const res = await api.upload.file(file);
+        if (res && res.success) {
+          setPayoutProofUrl(res.url);
+          setPayoutProofName(file.name);
+        } else {
+          alert("Proof document upload failed");
+        }
+      } catch (err: any) {
+        alert("Upload error: " + err.message);
+      } finally {
+        setUploadingProof(false);
+      }
+    }
+  };
+
   const handleExecutePayout = (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingLead) return;
     const proof = payoutProofName.trim() || `POP_TRANSFER_${payingLead.id}_${Math.floor(1000 + Math.random() * 9000)}`;
-    issueCommissionPayment(payingLead.id, proof, "#");
+    const proofUrl = payoutProofUrl || "#";
+    issueCommissionPayment(payingLead.id, proof, proofUrl);
     setPayingLead(null);
     setPayoutProofName("");
+    setPayoutProofUrl("");
   };
 
   // Accounting analytics
@@ -1835,6 +1859,23 @@ export function Admin() {
                 </div>
 
                 <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase font-mono">Proof of Payment Document / Receipt</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={payoutProofUrl} 
+                      onChange={(e) => setPayoutProofUrl(e.target.value)}
+                      className="flex-1 p-2 border border-slate-200 rounded-xl outline-none font-mono text-[11px] truncate"
+                      placeholder="Upload receipt PDF or enter URL"
+                    />
+                    <label className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl cursor-pointer text-[11px] block text-slate-700 shrink-0 font-sans font-semibold">
+                      {uploadingProof ? "Uploading..." : "Upload File"}
+                      <input type="file" accept="application/pdf,image/*" onChange={handleProofFileChange} disabled={uploadingProof} className="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase font-mono">Proof of Payment Filename</label>
                   <input 
                     type="text" 
@@ -1849,8 +1890,8 @@ export function Admin() {
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onClick={() => setPayingLead(null)} className="px-4 py-2 bg-slate-100 font-bold text-slate-550 rounded-lg">Browse Vault</button>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 font-bold text-white rounded-lg">Settle Commission</button>
+                <button type="button" onClick={() => { setPayingLead(null); setPayoutProofName(""); setPayoutProofUrl(""); }} className="px-4 py-2 bg-slate-100 font-bold text-slate-550 rounded-lg">Browse Vault</button>
+                <button type="submit" disabled={uploadingProof} className="px-4 py-2 bg-emerald-600 font-bold text-white rounded-lg disabled:opacity-50">Settle Commission</button>
               </div>
             </form>
           </div>

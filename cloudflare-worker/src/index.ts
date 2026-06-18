@@ -782,8 +782,9 @@ app.post("/api/upload", authMiddleware, async (c) => {
     const fileName = `${uniqueSuffix}-${file.name}`;
 
     // Put file stream to Cloudflare R2 files bucket
-    await c.env.FILES.put(fileName, file.stream(), {
-      httpMetadata: { contentType: file.type },
+    const arrayBuffer = await file.arrayBuffer();
+    await c.env.FILES.put(fileName, arrayBuffer, {
+      httpMetadata: { contentType: file.type || "application/octet-stream" },
     });
 
     const fileUrl = `/api/files/${fileName}`;
