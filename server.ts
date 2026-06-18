@@ -7,9 +7,16 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import multer from "multer";
+import crypto from "crypto";
 
 const app = express();
 const PORT = 3000;
+
+// Helper: SHA-256 password hashing with SALT_TOKEN
+function hashPassword(password: string): string {
+  const salt = process.env.SALT_TOKEN || "";
+  return crypto.createHash("sha256").update(password + salt).digest("hex");
+}
 
 // Set up local folder for storage
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -186,7 +193,9 @@ app.post("/api/auth/login", (req, res) => {
     return res.status(401).json({ error: "Incorrect email or password" });
   }
 
-  if (password && agent.password !== password) {
+  // Support both SHA-256 hashed password lookup and plain text database seeds lookup
+  const isMatch = (agent.password === password) || (agent.password === hashPassword(password || ""));
+  if (!isMatch) {
     return res.status(401).json({ error: "Incorrect email or password" });
   }
 
@@ -231,7 +240,7 @@ app.post("/api/auth/register", (req, res) => {
 
   const newAgent = {
     email: cleanEmail,
-    password: password || "password123",
+    password: hashPassword(password || "password123"),
     name: name || cleanEmail.split("@")[0],
     whatsapp: whatsapp || "+0000000000",
     country: country || "Unknown",
@@ -307,7 +316,11 @@ app.put("/api/agents/:email", authenticate, (req: any, res) => {
     return res.status(403).json({ error: "Superadmin role is protected" });
   }
 
-  const updatedAgent = { ...db.agents[idx], ...req.body };
+  const { password, ...otherBody } = req.body;
+  const updatedAgent = { ...db.agents[idx], ...otherBody };
+  if (password !== undefined && password !== "") {
+    updatedAgent.password = hashPassword(password);
+  }
   db.agents[idx] = updatedAgent;
   saveDatabase(db);
 
