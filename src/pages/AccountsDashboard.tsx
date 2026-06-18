@@ -65,14 +65,17 @@ export function AccountsDashboard() {
   const [profileTaxId, setProfileTaxId] = useState("");
   const [profileBankIban, setProfileBankIban] = useState("");
   const [profileBankSwift, setProfileBankSwift] = useState("");
+  const [loading, setLoading] = useState(true);
 
   // Load docs from remote DB
   useEffect(() => {
+    setLoading(true);
     api.billing.getInvoices()
       .then(res => {
         if (res) setDocs(res);
       })
-      .catch(err => console.error("Could not fetch invoices ledger:", err));
+      .catch(err => console.error("Could not fetch invoices ledger:", err))
+      .finally(() => setLoading(false));
   }, []);
 
   // Load all agents registered for dropdown edit in admin mode
@@ -217,9 +220,11 @@ export function AccountsDashboard() {
   const handleDeleteClick = (id: string) => {
     if (confirm("Are you sure you want to delete this billing document record?")) {
       const remaining = docs.filter(d => d.id !== id);
-      setDocs(remaining);
-      setSelectedDoc(null);
       api.billing.syncInvoices(remaining)
+        .then(() => {
+          setDocs(remaining);
+          setSelectedDoc(null);
+        })
         .catch(err => alert("Error syncing deletion to server: " + err.message));
     }
   };
@@ -256,12 +261,14 @@ export function AccountsDashboard() {
         }
         return d;
       });
-      setDocs(updated);
-      setIsEditing(false);
-      const matched = updated.find(x => x.id === selectedDoc.id);
-      if (matched) setSelectedDoc(matched);
       api.billing.syncInvoices(updated)
-        .then(() => alert("Billing Record updated successfully on server!"))
+        .then(() => {
+          setDocs(updated);
+          setIsEditing(false);
+          const matched = updated.find(x => x.id === selectedDoc.id);
+          if (matched) setSelectedDoc(matched);
+          alert("Billing Record updated successfully on server!");
+        })
         .catch(err => alert("Error syncing billing update to server: " + err.message));
     } else {
       const newD: BillingDoc = {
@@ -282,11 +289,13 @@ export function AccountsDashboard() {
         issuerEmail: user?.email || "unknown@agencypro.com"
       };
       const updated = [newD, ...docs];
-      setDocs(updated);
-      setIsCreating(false);
-      setSelectedDoc(newD);
       api.billing.syncInvoices(updated)
-        .then(() => alert("New Billing Record registered successfully on server!"))
+        .then(() => {
+          setDocs(updated);
+          setIsCreating(false);
+          setSelectedDoc(newD);
+          alert("New Billing Record registered successfully on server!");
+        })
         .catch(err => alert("Error syncing new billing document to server: " + err.message));
     }
   };
@@ -664,7 +673,12 @@ export function AccountsDashboard() {
                 <span className="text-xs bg-slate-100 text-slate-650 font-semibold px-2.5 py-1 rounded-lg">Live Synchronized</span>
               </div>
 
-              {filteredDocs.length === 0 ? (
+              {loading ? (
+                <div className="p-12 text-center text-slate-400 space-y-2">
+                  <span className="animate-spin text-[32px] text-teal-600 material-symbols-outlined block">sync</span>
+                  <p className="text-sm font-semibold">Loading data...</p>
+                </div>
+              ) : filteredDocs.length === 0 ? (
                 <div className="p-12 text-center text-slate-400 space-y-2">
                   <span className="material-symbols-outlined text-[48px] text-slate-300">hourglass_empty</span>
                   <p className="text-sm font-semibold">No transactions or invoices found in selection category.</p>

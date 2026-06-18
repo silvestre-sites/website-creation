@@ -64,12 +64,14 @@ export function Resources() {
   const [showResourceForm, setShowResourceForm] = useState(false);
   const [resourceTitle, setResourceTitle] = useState("");
   const [resourceLink, setResourceLink] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const resDocs = await api.training.getResources();
       setAdminResources(resDocs || []);
@@ -79,95 +81,12 @@ export function Resources() {
 
     try {
       const dbMods = await api.training.getModules();
-      if (dbMods && dbMods.length > 0) {
-        setModules(dbMods);
-      } else {
-        await initDefaultModules();
-      }
+      setModules(dbMods || []);
     } catch (e) {
       console.error("Failed to load training modules:", e);
-      await initDefaultModules();
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const initDefaultModules = async () => {
-    const defaultModules: ModuleConfig[] = [
-      {
-        id: 1,
-        title: "The Agent Business Model",
-        duration: "15 mins",
-        image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80",
-        summary: "Understand how search pipelines identify offline local businesses and how we deliver fully customized digital prototypes ready for presenting.",
-        points: [
-          "Unlocking local market gaps: Sourcing businesses operating without active websites",
-          "The prototype leverage value: Showcasing pre-built designs before pitching",
-          "Closing the loop: Collecting commissions cleanly on client conversion"
-        ],
-        quizQuestions: [
-          {
-            question: "What is the primary method used to capture local business interest?",
-            options: [
-              "Cold-calling and asking for credit card info immediately",
-              "Showing a custom-built website prototype tailored for their brand to lower sales friction",
-              "Spamming email lists until they subscribe"
-            ],
-            correctIndex: 1
-          }
-        ]
-      },
-      {
-        id: 2,
-        title: "Selling Website Value",
-        duration: "20 mins",
-        image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80",
-        summary: "How to articulate the distinct commercial disadvantages of operating without a modern web presence.",
-        points: [
-          "Replacing volatile social media handles with reliable, branded domains",
-          "Generating customer inbound inquiries 24/7",
-          "Establishing local credibility, digital authority, and searchable SEO rankings"
-        ],
-        quizQuestions: [
-          {
-            question: "Why is a customized domain better than just a Facebook page for an SME?",
-            options: [
-              "It builds permanent branding authority, Google search rankings, and cuts reliance on social media algorithm changes",
-              "Facebook is actually better and represents more value",
-              "Domains are much more expensive so they look premium"
-            ],
-            correctIndex: 0
-          }
-        ]
-      },
-      {
-        id: 3,
-        title: "Contacting Business Owners",
-        duration: "25 mins",
-        image: "https://images.unsplash.com/photo-1552581230-c01bc0d48453?auto=format&fit=crop&w=800&q=80",
-        summary: "Profound prospecting strategies and professional scripts tailored to build swift trust and high response rates.",
-        points: [
-          "Warm intro scripts: Positioning as a local business booster, not a cold telemarketer",
-          "Sharing the custom demonstration link (The low friction approach)",
-          "Setting up brief web discovery meetings effortlessly"
-        ],
-        quizQuestions: [
-          {
-            question: "How should you start an introductory WhatsApp message?",
-            options: [
-              "Specify that you are selling a $1500 package right now",
-              "Position as a local booster, share their personalized prototype link, and request a brief feedback note",
-              "Send a generic automated corporate proposal email"
-            ],
-            correctIndex: 1
-          }
-        ]
-      }
-    ];
-    try {
-      await api.training.saveModules(defaultModules);
-    } catch (e) {
-      console.error("Failed to seed default academy modules:", e);
-    }
-    setModules(defaultModules);
   };
 
   // Check if agent passed specific module quiz state
@@ -489,7 +408,18 @@ export function Resources() {
             </div>
 
             <div className="space-y-4">
-              {modules.map((m) => {
+              {loading ? (
+                <div className="p-12 text-center text-slate-400 space-y-2 bg-white border border-slate-200 rounded-2xl">
+                  <span className="animate-spin text-[32px] text-teal-600 material-symbols-outlined block">sync</span>
+                  <p className="text-sm font-semibold">Loading data...</p>
+                </div>
+              ) : modules.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 space-y-2 bg-white border border-slate-200 rounded-2xl">
+                  <span className="material-symbols-outlined text-[48px] text-slate-300">school</span>
+                  <p className="text-sm font-semibold">No training modules available.</p>
+                </div>
+              ) : (
+                modules.map((m) => {
                 const isExpanded = expandedId === m.id;
                 const isPassed = isModuleQuizPassed(m.id);
                 
@@ -711,7 +641,8 @@ export function Resources() {
                     )}
                   </div>
                 );
-              })}
+                })
+              )}
             </div>
 
             {/* Sourced Template materials catalog */}

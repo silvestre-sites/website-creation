@@ -117,51 +117,7 @@ export function Admin() {
 
     api.training.getModules()
       .then(res => {
-        if (res && res.length > 0) {
-          setModules(res);
-        } else {
-          const defaultModules = [
-            {
-              id: 1,
-              title: "The Agent Business Model",
-              duration: "15 mins",
-              image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80",
-              summary: "Understand how search pipelines identify local businesses and deliver fully customized digital prototypes ready for presenting.",
-              points: [
-                "Unlocking local market gaps: Sourcing businesses operating without active websites",
-                "The prototype leverage value: Showcasing pre-built designs before pitching",
-                "Closing the loop: Collecting commissions cleanly on client conversion"
-              ]
-            },
-            {
-              id: 2,
-              title: "Selling Website Value",
-              duration: "20 mins",
-              image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80",
-              summary: "How to articulate the distinct commercial disadvantages of operating without a modern web presence.",
-              points: [
-                "Replacing volatile social media handles with reliable, branded domains",
-                "Generating customer inbound inquiries 24/7",
-                "Establishing local credibility, digital authority, and searchable SEO rankings"
-              ]
-            },
-            {
-              id: 3,
-              title: "Contacting Business Owners",
-              duration: "25 mins",
-              image: "https://images.unsplash.com/photo-1552581230-c01bc0d48453?auto=format&fit=crop&w=800&q=80",
-              summary: "Profound prospecting strategies and professional scripts tailored to build swift trust and high response rates.",
-              points: [
-                "Warm intro scripts: Positioning as a local business booster, not a cold telemarketer",
-                "Sharing the custom demonstration link (The low friction approach)",
-                "Setting up brief web discovery meetings effortlessly"
-              ]
-            }
-          ];
-          api.training.saveModules(defaultModules)
-            .then(() => setModules(defaultModules))
-            .catch(err => console.error("Error seeding modules:", err));
-        }
+        setModules(res || []);
       })
       .catch(err => console.error("Error reading training modules from database:", err));
   }, [activeTab]);
